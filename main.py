@@ -25,7 +25,7 @@ that have that hour, in four steps:
    at the target's size.
 
 2. Weak OU-style pull. The local fit's prediction is pulled toward the
-   kernel-weighted mean of y by a factor kappa = 0.7: the size signal is
+   kernel-weighted mean of y by a factor kappa = 0.8: the size signal is
    real but noisy, and the pull keeps the forecast from chasing the
    noisiest local slope. The median is then blended 25/75 with the
    kernel-weighted empirical median of y, which is robust when a few
@@ -35,7 +35,7 @@ that have that hour, in four steps:
    the local fit's residuals, but each residual quantile is shrunk toward
    the normal shape at that hour's residual spread, and that spread is
    itself shrunk toward the pooled spread across all 23 hours (prior
-   weight 20). With ~37 curves, a single hour's 5%/95% quantiles are
+   weight 40). With ~37 curves, a single hour's 5%/95% quantiles are
    noisy; the shrinkage borrows strength across hours without forcing
    every hour to share one spread.
 
@@ -53,12 +53,12 @@ always a valid 23-row forecast.
 Validation (leave-one-out over the 37 usable practice comparables, each
 held-out launch forecast from the other 36 -- the kit ships no practice
 answers and its grade-local refuses program/v1 kits, so this is the
-honest local check): pinball loss 0.377 pooled / 0.253 on big launches
+honest local check): pinball loss 0.3766 pooled / 0.2530 on big launches
 (hour-1 >= 20k viewers, the regime of all four practice launches and of
-GTA VI) / 0.212 on mega-launches (hour-1 >= 100k), vs 0.930 / 0.321 for
+GTA VI) / 0.211 on mega-launches (hour-1 >= 100k), vs 0.930 / 0.321 for
 the persistence baseline on the same cases; typical miss ~76% vs 80%
-pooled; 90% coverage 0.897. The previous shipped model scored 0.388 /
-0.266 on the same check.
+pooled; 90% coverage 0.906. The previous shipped model scored 0.3772 /
+0.2529 with 0.897 coverage on the same check.
 
 Output: {"hours": [{"hour": h, "q": [q05, q25, q50, q75, q95]}, ...]},
 exactly 23 rows, hours 2..24, each q finite, > 0, <= 1e9, non-decreasing.
@@ -94,9 +94,9 @@ HOURS = list(range(2, 25))
 # when shrinking its empirical residual quantiles toward the normal shape.
 # CAL: calibration multiplier on the interval half-widths.
 BW = 1.25
-KAPPA = 0.7
+KAPPA = 0.8
 MED_MIX = 0.25
-SPREAD_PRIOR = 20.0
+SPREAD_PRIOR = 40.0
 CAL = 1.1
 # Minimum usable comparables for an hour before falling back to persistence.
 MIN_CURVES = 5
