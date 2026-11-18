@@ -15,31 +15,44 @@ https://make.fun/bounty/gta6-twitch-ccu-forecast-01
 The case anchors on its hour-1 print `p1` and forecasts hours 2..24 as five
 quantiles each. The case ships `comparables` — the hourly Twitch curves of
 past big game launches — and for each one we take its release-day shape as
-log ratios `ln(viewers_h / viewers_1)`. Two views of that shape are blended
-(geometric mean of quantiles):
+log ratios `ln(viewers_h / viewers_1)`. For every hour, separately, the
+forecast is built from the comparables that have that hour, in four steps:
 
-1. **Kernel-weighted empirical quantiles.** Each comparable is weighted by
-   a Gaussian kernel on `|ln p1_i - ln p1|` (bandwidth 1.0 in log space),
+1. **Size-weighted local-linear fit.** Each comparable is weighted by a
+   Gaussian kernel on `|ln p1_i - ln p1|` (bandwidth 1.25 in log space),
    so launches of a similar size dominate. This matters: across past
    launches the log ratio is strongly negatively correlated with `log p1`
    (about −0.9 at hour 18) — a launch whose category was nearly empty at
    00:00 UTC can explode 100× by the US unlock, while a launch already at
-   100k+ viewers in hour 1 typically only doubles.
-2. **Per-hour regression.** OLS of the log ratio on `log p1` across
-   comparables, with the spread from the empirical quantiles of the
-   regression residuals. This extrapolates the size dependence smoothly
-   where the kernel has few neighbours.
+   100k+ viewers in hour 1 typically only doubles. A weighted
+   least-squares line of the log ratio on `log p1` is fit at the target's
+   size.
+2. **Weak OU-style pull.** The local fit's prediction is pulled toward the
+   kernel-weighted mean by a factor 0.7 — the size signal is real but
+   noisy — and the median is blended 25/75 with the kernel-weighted
+   empirical median, which is robust when a few launches sit far from the
+   line.
+3. **Spread shrinkage.** The spread comes from the empirical quantiles of
+   the local fit's residuals, each shrunk toward the normal shape at that
+   hour's residual spread, which is itself shrunk toward the pooled
+   spread across all 23 hours (prior weight 20). With ~37 curves, one
+   hour's 5%/95% quantiles are noisy; the shrinkage borrows strength
+   across hours without forcing every hour to share one spread.
+4. **Interval calibration.** The half-widths around the median are scaled
+   by 1.1, bringing the 90% coverage to ~0.90 — where the pinball loss is
+   lowest.
 
 If an hour has too few usable comparables, it falls back to the house
 persistence baseline (every hour stays at `p1`, spread `0.15·√(h−1)` in
 log space), so the output is always a valid 23-row forecast.
 
-Local validation is leave-one-out over the 38 practice comparables (the
-kit ships no practice answers and its `grade-local` refuses program/v1
-kits, so this is the honest local check): pinball loss 0.254 on big
-launches (hour-1 ≥ 20k viewers) vs 0.321 for the persistence baseline,
-typical miss ~46% vs 63%, 90% coverage ~0.86. Over all comparables the
-loss is 0.39 vs 0.93 baseline.
+Local validation is leave-one-out over the 37 usable practice
+comparables (the kit ships no practice answers and its `grade-local`
+refuses program/v1 kits, so this is the honest local check): pinball loss
+0.377 pooled / 0.253 on big launches (hour-1 ≥ 20k viewers) / 0.212 on
+mega-launches (hour-1 ≥ 100k), vs 0.930 / 0.321 for the persistence
+baseline on the same cases; typical miss ~76%; 90% coverage 0.897. The
+previous shipped model scored 0.388 / 0.266 on the same check.
 
 ## Run
 
