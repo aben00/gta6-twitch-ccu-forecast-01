@@ -40,8 +40,8 @@ that have that hour, in four steps:
    every hour to share one spread.
 
 4. Interval calibration. The half-widths around the median are scaled by
-   1.1. Leave-one-out checks showed the raw intervals covering about
-   0.88 of held-out hours; the scaling brings 90% coverage to ~0.90,
+   1.08. Leave-one-out checks showed the raw intervals covering about
+   0.88 of held-out hours; the scaling brings 90% coverage to 0.900,
    which is where the pinball loss is lowest -- too narrow pays for every
    hour outside the band, too wide pays at every hour.
 
@@ -53,12 +53,12 @@ always a valid 23-row forecast.
 Validation (leave-one-out over the 37 usable practice comparables, each
 held-out launch forecast from the other 36 -- the kit ships no practice
 answers and its grade-local refuses program/v1 kits, so this is the
-honest local check): pinball loss 0.3766 pooled / 0.2530 on big launches
+honest local check): pinball loss 0.3764 pooled / 0.2526 on big launches
 (hour-1 >= 20k viewers, the regime of all four practice launches and of
-GTA VI) / 0.211 on mega-launches (hour-1 >= 100k), vs 0.930 / 0.321 for
+GTA VI) / 0.210 on mega-launches (hour-1 >= 100k), vs 0.930 / 0.321 for
 the persistence baseline on the same cases; typical miss ~76% vs 80%
-pooled; 90% coverage 0.906. The previous shipped model scored 0.3772 /
-0.2529 with 0.897 coverage on the same check.
+pooled; 90% coverage 0.900. The previous shipped model scored 0.3766 /
+0.2530 with 0.906 coverage on the same check.
 
 Output: {"hours": [{"hour": h, "q": [q05, q25, q50, q75, q95]}, ...]},
 exactly 23 rows, hours 2..24, each q finite, > 0, <= 1e9, non-decreasing.
@@ -97,7 +97,7 @@ BW = 1.25
 KAPPA = 0.8
 MED_MIX = 0.25
 SPREAD_PRIOR = 40.0
-CAL = 1.1
+CAL = 1.08
 # Minimum usable comparables for an hour before falling back to persistence.
 MIN_CURVES = 5
 # Persistence fallback spread, as in the house baseline.
