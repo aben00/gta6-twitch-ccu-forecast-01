@@ -254,15 +254,19 @@ def persistence_log_quantiles(hour: int, levels):
             * BASE_SIGMA * math.sqrt(hour - 1) for tau in levels]
 
 
-def hour_log_quantiles(fits, pooled_sigma: float, hour: int, levels):
-    """Five log-ratio quantiles for one hour from its fit.
+def forecast_hour_log_quantiles(curves, log_p1: float, pooled_sigma: float,
+                                hour: int, levels):
+    """Five log-ratio quantiles for one hour, computed end to end.
 
-    The spread is the empirical quantiles of the local fit's residuals,
-    shrunk toward the normal shape at the hour's spread (itself shrunk
-    toward the pooled spread), and the interval half-widths around the
-    median are scaled by the calibration factor.
+    Runs the hour's size-weighted local-linear fit (OU pull and median
+    blend included), then turns the fit's residuals into calibrated
+    intervals: each residual quantile is shrunk toward the normal shape
+    at the hour's spread, which is itself shrunk toward the pooled
+    spread, and the interval half-widths around the median are scaled
+    by the calibration factor. An hour with too few usable comparables
+    falls back to the house persistence baseline.
     """
-    fit = fits.get(hour)
+    fit = hour_fit(curves, log_p1, hour)
     if fit is None:
         return persistence_log_quantiles(hour, levels)
     median, residuals, variance, n_eff = fit
@@ -278,6 +282,20 @@ def hour_log_quantiles(fits, pooled_sigma: float, hour: int, levels):
             for off in offsets]
 
 
+def pooled_spread(curves, log_p1: float) -> float:
+    """Pooled residual spread across all 23 hours, for the shrinkage
+    prior. Fits every hour once and averages the residual variances;
+    falls back to the persistence spread when no hour fits at all."""
+    var_sum = 0.0
+    var_count = 0
+    for hour in HOURS:
+        fit = hour_fit(curves, log_p1, hour)
+        if fit is not None:
+            var_sum += fit[2]
+            var_count += 1
+    return math.sqrt(var_sum / var_count) if var_count else BASE_SIGMA
+
+
 def forecast_case(case: dict, name: str) -> dict:
     levels = case.get("levels") or LEVELS
     first = next((k for k in case.get("known") or [] if k.get("hour") == 1), None)
@@ -286,24 +304,16 @@ def forecast_case(case: dict, name: str) -> dict:
     p1 = max(1.0, float(first["viewers"]))
     curves = usable_curves(case)
     log_p1 = math.log(p1)
-    # First pass: fit every hour and pool the residual variance across
-    # hours for the spread shrinkage prior.
-    fits = {}
-    var_sum = 0.0
-    var_count = 0
-    for hour in HOURS:
-        fit = hour_fit(curves, log_p1, hour)
-        if fit is not None:
-            fits[hour] = fit
-            var_sum += fit[2]
-            var_count += 1
-    pooled_sigma = math.sqrt(var_sum / var_count) if var_count else BASE_SIGMA
+    # First pass: pool the residual spread across hours for the
+    # shrinkage prior, then forecast each hour end to end with it.
+    pooled_sigma = pooled_spread(curves, log_p1)
     rows = []
     for row in case.get("forecast") or []:
         hour = int(row["hour"])
         if hour not in HOURS:
             continue
-        log_qs = hour_log_quantiles(fits, pooled_sigma, hour, levels)
+        log_qs = forecast_hour_log_quantiles(curves, log_p1, pooled_sigma,
+                                             hour, levels)
         qs = clamp_quantiles([round2(p1 * math.exp(lq)) for lq in log_qs])
         rows.append({"hour": hour, "q": qs})
     if len(rows) != len(HOURS):
